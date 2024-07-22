@@ -6,7 +6,7 @@ use std::mem::ManuallyDrop;
 use std::{ffi::OsStr, io::Read, path::Path};
 use zip::read::read_zipfile_from_stream;
 use std::fs::File;
-use std::io::{self, Write, Seek};
+use std::io::{self, Cursor, Write, Seek};
 use zip::read::ZipArchive;
 use rattler_digest::{HashingReader, Sha256, Md5};
 
@@ -49,44 +49,84 @@ pub fn extract_tar_bz2(
 
 /// Extracts the contents of a `.conda` package archive.
 /// Extracts the contents of a `.conda` package archive.
-pub fn extract_conda(reader: impl Read, destination: &Path) -> Result<ExtractResult, ExtractError> {
-    // Construct the destination path if it doesn't exist yet
-    std::fs::create_dir_all(destination).map_err(ExtractError::CouldNotCreateDestination)?;
+// pub fn extract_conda(reader: impl Read, destination: &Path) -> Result<ExtractResult, ExtractError> {
+//     // Construct the destination path if it doesn't exist yet
+//     std::fs::create_dir_all(destination).map_err(ExtractError::CouldNotCreateDestination)?;
 
-    // Create a temporary file to store the downloaded zip file
-    let mut temp_file = tempfile::tempfile().map_err(|e| ExtractError::IoError(e))?;
-    std::io::copy(&mut reader.take(u64::MAX), &mut temp_file).map_err(|e| ExtractError::IoError(e))?;
+//     // Create a temporary file to store the downloaded zip file
+//     let mut temp_file = tempfile::tempfile().map_err(|e| ExtractError::IoError(e))?;
+//     std::io::copy(&mut reader.take(u64::MAX), &mut temp_file).map_err(|e| ExtractError::IoError(e))?;
 
-    // Rewind the file to the beginning
-    temp_file.seek(io::SeekFrom::Start(0)).map_err(|e| ExtractError::IoError(e))?;
+//     // Rewind the file to the beginning
+//     temp_file.seek(io::SeekFrom::Start(0)).map_err(|e| ExtractError::IoError(e))?;
     
 
-    // Open the zip archive\
-    let mut zip = ZipArchive::new(&mut temp_file).map_err(|e| ExtractError::ZipError(e))?;
+//     // Open the zip archive\
+//     let mut zip = ZipArchive::new(&mut temp_file).map_err(|e| ExtractError::ZipError(e))?;
 
-    // Iterate over all entries in the zip-file and extract them one-by-one
-    for i in 0..zip.len() {
-        let mut file = zip.by_index(i).map_err(|e| ExtractError::ZipError(e))?;
-        let outpath = destination.join(file.sanitized_name());
+//     // Iterate over all entries in the zip-file and extract them one-by-one
+//     for i in 0..zip.len() {
+//         let mut file = zip.by_index(i).map_err(|e| ExtractError::ZipError(e))?;
+//         let outpath = destination.join(file.sanitized_name());
 
-        if file.name().ends_with(".tar.zst") {
-            let mut tar_zst_file = File::create(&outpath).map_err(|e| ExtractError::IoError(e))?;
-            std::io::copy(&mut file, &mut tar_zst_file).map_err(|e| ExtractError::IoError(e))?;
-            tar_zst_file.seek(io::SeekFrom::Start(0)).map_err(|e| ExtractError::IoError(e))?;
-            stream_tar_zst(tar_zst_file)?.unpack(destination)?;
-        } else {
-            if let Some(p) = outpath.parent() {
-                if !p.exists() {
-                    std::fs::create_dir_all(&p).map_err(|e| ExtractError::IoError(e))?;
-                }
-            }
-            let mut outfile = File::create(&outpath).map_err(|e| ExtractError::IoError(e))?;
-            std::io::copy(&mut file, &mut outfile).map_err(|e| ExtractError::IoError(e))?;
-        }
-    }
+//         if file.name().ends_with(".tar.zst") {
+//             let mut tar_zst_file = File::create(&outpath).map_err(|e| ExtractError::IoError(e))?;
+//             std::io::copy(&mut file, &mut tar_zst_file).map_err(|e| ExtractError::IoError(e))?;
+//             tar_zst_file.seek(io::SeekFrom::Start(0)).map_err(|e| ExtractError::IoError(e))?;
+//             stream_tar_zst(tar_zst_file)?.unpack(destination)?;
+//         } else {
+//             if let Some(p) = outpath.parent() {
+//                 if !p.exists() {
+//                     std::fs::create_dir_all(&p).map_err(|e| ExtractError::IoError(e))?;
+//                 }
+//             }
+//             let mut outfile = File::create(&outpath).map_err(|e| ExtractError::IoError(e))?;
+//             std::io::copy(&mut file, &mut outfile).map_err(|e| ExtractError::IoError(e))?;
+//         }
+//     }
 
-    // Read the file to the end to make sure the hash is properly computed.
-    std::io::copy(&mut temp_file, &mut std::io::sink()).map_err(|e| ExtractError::IoError(e))?;
+//     // Read the file to the end to make sure the hash is properly computed.
+//     std::io::copy(&mut temp_file, &mut std::io::sink()).map_err(|e| ExtractError::IoError(e))?;
+
+   
+// }
+
+pub fn extract_conda(mut reader: impl Read, destination: &Path) ->Result<ExtractResult, ExtractError> {
+       // Read all data from the reader into a Vec<u8>
+       let mut buffer = Vec::new();
+       reader.read_to_end(&mut buffer)?;
+   
+       // Create a Cursor from the buffer
+       let cursor = Cursor::new(buffer);
+   
+       // Create a ZipArchive from the Cursor
+       let mut archive = ZipArchive::new(cursor)?;
+   
+       for i in 0..archive.len() {
+           let mut file = archive.by_index(i)?;
+           let outpath = destination.join(file.name());
+   
+           if (*file.name()).ends_with('/') {
+               std::fs::create_dir_all(&outpath)?;
+           } else {
+               if let Some(p) = outpath.parent() {
+                   if !p.exists() {
+                       std::fs::create_dir_all(&p)?;
+                   }
+               }
+               let mut outfile = File::create(&outpath)?;
+               io::copy(&mut file, &mut outfile)?;
+           }
+   
+           // Set the permissions if needed
+           #[cfg(unix)]
+           {
+               use std::os::unix::fs::PermissionsExt;
+               if let Some(mode) = file.unix_mode() {
+                   std::fs::set_permissions(&outpath, std::fs::Permissions::from_mode(mode))?;
+               }
+           }
+       }
 
     let sha256_reader = rattler_digest::HashingReader::<_, rattler_digest::Sha256>::new("abc");
   
@@ -98,4 +138,3 @@ pub fn extract_conda(reader: impl Read, destination: &Path) -> Result<ExtractRes
 
     Ok(ExtractResult { sha256, md5 })
 }
-

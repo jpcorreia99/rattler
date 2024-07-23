@@ -79,8 +79,8 @@ pub enum InstallError {
     FailedToReadPathsJson(#[source] std::io::Error),
 
     /// The index.json file could not be read.
-    #[error("failed to read 'index.json'")]
-    FailedToReadIndexJson(#[source] std::io::Error),
+    #[error("failed to read 'index.json' at {0}")]
+    FailedToReadIndexJson(PathBuf, #[source] std::io::Error),
 
     /// The link.json file could not be read.
     #[error("failed to read 'link.json'")]
@@ -590,8 +590,8 @@ async fn read_index_json(
         let package_dir = package_dir.to_owned();
         driver
             .run_blocking_io_task(move || {
-                IndexJson::from_package_directory(package_dir)
-                    .map_err(InstallError::FailedToReadIndexJson)
+                IndexJson::from_package_directory(package_dir.clone())
+                    .map_err(|e| InstallError::FailedToReadIndexJson(package_dir.clone(), e))
             })
             .await
     }

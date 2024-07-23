@@ -33,7 +33,7 @@ async fn get_reader(
         let file =
             tokio::fs::File::open(url.to_file_path().expect("Could not convert to file path"))
                 .await
-                .map_err(ExtractError::IoError)?;
+                .map_err(|e| ExtractError::IoErrorWithDescription(url.to_file_path().unwrap(), e))?;
 
         Ok(Either::Left(BufReader::new(file)))
     } else {

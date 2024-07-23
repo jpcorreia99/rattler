@@ -109,16 +109,18 @@ pub fn extract_conda(
         let outpath = destination.join(file.sanitized_name());
 
         if file.name().ends_with(".tar.zst") {
-            let mut tar_zst_file = File::create(&outpath).map_err(|e| ExtractError::IoError(e))?;
+            let mut tar_zst_file = File::create(&outpath).map_err(|e| ExtractError::IoErrorWithDescription(outpath.to_owned(),e))?;
             std::io::copy(&mut file, &mut tar_zst_file)
                 .map_err(|e| ExtractError::IoErrorWithDescription(outpath.clone(), e))?;
             tar_zst_file
                 .seek(io::SeekFrom::Start(0))
                 .map_err(|e| ExtractError::IoErrorWithDescription(outpath.clone(), e))?;
             let e = io::Error::new(io::ErrorKind::Other, "some io error");
+            let e2 = io::Error::new(io::ErrorKind::Other, "some io error2");
             stream_tar_zst(tar_zst_file)
                 .map_err(|_e| ExtractError::IoErrorWithDescription(outpath.clone(), e))?
-                .unpack(destination)?;
+                .unpack(destination)
+                .map_err(|_e2| ExtractError::IoErrorWithDescription(outpath.clone(), e2))?;
         } else {
             if let Some(p) = outpath.parent() {
                 if !p.exists() {

@@ -27,6 +27,9 @@ pub enum ExtractError {
     #[error("an io error occurred")]
     IoError(#[from] std::io::Error),
 
+    #[error("an io error occurred at {0}")]
+    IoErrorWithDescription(PathBuf, #[source] std::io::Error),
+
     #[error("could not create the destination path")]
     CouldNotCreateDestination(#[source] std::io::Error),
 

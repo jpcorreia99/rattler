@@ -3,6 +3,7 @@
 
 use super::{ExtractError, ExtractResult};
 use rattler_digest::{HashingReader, Md5, Sha256};
+use std::error::Error;
 use std::fs::File;
 use std::io::{self, Cursor, Seek, Write};
 use std::mem::ManuallyDrop;
@@ -109,19 +110,26 @@ pub fn extract_conda(
 
         if file.name().ends_with(".tar.zst") {
             let mut tar_zst_file = File::create(&outpath).map_err(|e| ExtractError::IoError(e))?;
-            std::io::copy(&mut file, &mut tar_zst_file).map_err(|e| ExtractError::IoError(e))?;
+            std::io::copy(&mut file, &mut tar_zst_file)
+                .map_err(|e| ExtractError::IoErrorWithDescription(outpath.clone(), e))?;
             tar_zst_file
                 .seek(io::SeekFrom::Start(0))
-                .map_err(|e| ExtractError::IoError(e))?;
-            stream_tar_zst(tar_zst_file)?.unpack(destination)?;
+                .map_err(|e| ExtractError::IoErrorWithDescription(outpath.clone(), e))?;
+            let e = io::Error::new(io::ErrorKind::Other, "some io error");
+            stream_tar_zst(tar_zst_file)
+                .map_err(|_e| ExtractError::IoErrorWithDescription(outpath.clone(), e))?
+                .unpack(destination)?;
         } else {
             if let Some(p) = outpath.parent() {
                 if !p.exists() {
-                    std::fs::create_dir_all(&p).map_err(|e| ExtractError::IoError(e))?;
+                    std::fs::create_dir_all(&p)
+                        .map_err(|e| ExtractError::IoErrorWithDescription(p.to_path_buf(), e))?;
                 }
             }
-            let mut outfile = File::create(&outpath).map_err(|e| ExtractError::IoError(e))?;
-            std::io::copy(&mut file, &mut outfile).map_err(|e| ExtractError::IoError(e))?;
+            let mut outfile = File::create(&outpath)
+                .map_err(|e| ExtractError::IoErrorWithDescription(outpath.clone(), e))?;
+            std::io::copy(&mut file, &mut outfile)
+                .map_err(|e| ExtractError::IoErrorWithDescription(outpath.clone(), e))?;
         }
 
         // Set the permissions if needed

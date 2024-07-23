@@ -29,6 +29,7 @@ tokio-util = { workspace = true, features = ["io-util"] }
 url = { workspace = true }
 zip = { workspace = true, features = ["deflate", "time"] }
 zstd = { workspace = true, features = ["zstdmt"] }
+rand = "0.8.5"
 
 [features]
 default = ["native-tls"]

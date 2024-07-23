@@ -99,20 +99,6 @@ pub fn extract_conda(
     let mut buffer = Vec::new();
     reader.read_to_end(&mut buffer)?;
 
-
-    // Create a temporary file
-    let mut temp_file = NamedTempFile::new()?;
-
-    // Write the buffer to the temporary file
-    temp_file.write_all(&buffer)?;
-
-    // Log the temporary file location
-    println!("!! puting it at path: {:?}", temp_file.path());
-
-    // Rewind the file to the beginning
-    temp_file.as_file_mut().seek(io::SeekFrom::Start(0))?;
-
-
     // Create a Cursor from the buffer
     let cursor = Cursor::new(buffer);
 

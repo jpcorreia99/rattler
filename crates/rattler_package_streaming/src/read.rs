@@ -10,7 +10,7 @@ use std::mem::ManuallyDrop;
 use std::{ffi::OsStr, io::Read, path::Path};
 use zip::read::read_zipfile_from_stream;
 use zip::read::ZipArchive;
-use tempfile::NamedTempFile;
+use tempfile::TempDir;
 
 /// Returns the `.tar.bz2` as a decompressed `tar::Archive`. The `tar::Archive` can be used to
 /// extract the files from it, or perform introspection.
@@ -100,24 +100,27 @@ pub fn extract_conda(
     reader.read_to_end(&mut buffer)?;
 
 
-    // Create a temporary file
-    let mut temp_file = NamedTempFile::new()?;
+   
+    // Create a temporary directory
+    let temp_dir = TempDir::new()?;
+    let temp_file_path = temp_dir.path().join("tempfile.zip");
+
+    // Create a temporary file inside the temporary directory
+    let mut temp_file = File::create(&temp_file_path)?;
 
     // Write the buffer to the temporary file
     temp_file.write_all(&buffer)?;
 
     // Log the temporary file location
-    println!("!! puting it at path: {:?}", temp_file.path());
+    println!("Temporary file created at: {:?}", temp_file_path);
 
+
+    
     // Rewind the file to the beginning
-    temp_file.as_file_mut().seek(io::SeekFrom::Start(0))?;
-
-
-    // Create a Cursor from the buffer
-    let cursor = Cursor::new(buffer);
+    temp_file.seek(io::SeekFrom::Start(0))?;
 
     // Create a ZipArchive from the Cursor
-    let mut archive = ZipArchive::new(cursor)?;
+    let mut archive = ZipArchive::new(temp_file)?;
 
     for i in 0..archive.len() {
         let mut file = archive.by_index(i)?;

@@ -10,6 +10,7 @@ use std::mem::ManuallyDrop;
 use std::{ffi::OsStr, io::Read, path::Path};
 use zip::read::read_zipfile_from_stream;
 use zip::read::ZipArchive;
+use tempfile::NamedTempFile;
 
 /// Returns the `.tar.bz2` as a decompressed `tar::Archive`. The `tar::Archive` can be used to
 /// extract the files from it, or perform introspection.
@@ -98,6 +99,20 @@ pub fn extract_conda(
     let mut buffer = Vec::new();
     reader.read_to_end(&mut buffer)?;
 
+
+    // Create a temporary file
+    let mut temp_file = NamedTempFile::new()?;
+
+    // Write the buffer to the temporary file
+    temp_file.write_all(&buffer)?;
+
+    // Log the temporary file location
+    println!("!! puting it at path: {:?}", temp_file.path());
+
+    // Rewind the file to the beginning
+    temp_file.as_file_mut().seek(io::SeekFrom::Start(0))?;
+
+
     // Create a Cursor from the buffer
     let cursor = Cursor::new(buffer);
 
@@ -116,11 +131,10 @@ pub fn extract_conda(
                 .seek(io::SeekFrom::Start(0))
                 .map_err(|e| ExtractError::IoErrorWithDescription(outpath.clone(), e))?;
             let e = io::Error::new(io::ErrorKind::Other, "some io error");
-            let e2 = io::Error::new(io::ErrorKind::Other, "some io error2");
             stream_tar_zst(tar_zst_file)
                 .map_err(|_e| ExtractError::IoErrorWithDescription(outpath.clone(), e))?
                 .unpack(destination)
-                .map_err(|_e2| ExtractError::IoErrorWithDescription(outpath.clone(), e2))?;
+                .map_err(|_e2| ExtractError::IoErrorWithDescription(outpath.clone(), _e2))?;
         } else {
             if let Some(p) = outpath.parent() {
                 if !p.exists() {

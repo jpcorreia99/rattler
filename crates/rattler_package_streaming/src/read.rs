@@ -88,9 +88,12 @@ pub fn extract_conda(reader: impl Read, destination: &Path) -> Result<ExtractRes
             Ok(ExtractResult { sha256, md5 })
         }
         Err(ExtractError::ZipError(zip_error))
-            if zip_error
+            if (zip_error
                 .to_string()
-                .contains("The file length is not available in the local header") =>
+                .contains("The file length is not available in the local header") || 
+                zip_error
+                .to_string()
+                .contains("No valid central directory found")) =>
         {
             // Read the file to the end to ensure buffer is all in memory
             eprintln!(

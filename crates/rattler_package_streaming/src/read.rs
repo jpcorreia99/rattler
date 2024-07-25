@@ -90,10 +90,7 @@ pub fn extract_conda(reader: impl Read, destination: &Path) -> Result<ExtractRes
         Err(ExtractError::ZipError(zip_error))
             if (zip_error
                 .to_string()
-                .contains("The file length is not available in the local header") || 
-                zip_error
-                .to_string()
-                .contains("No valid central directory found")) =>
+                .contains("The file length is not available in the local header")) =>
         {
             // Read the file to the end to ensure buffer is all in memory
             eprintln!(

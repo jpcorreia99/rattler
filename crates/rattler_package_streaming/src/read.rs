@@ -102,7 +102,9 @@ pub fn extract_conda(reader: impl Read, destination: &Path) -> Result<ExtractRes
             );
             println!("USED THE FALLBACK INSTAllATION!!!");
             std::io::copy(&mut tee_reader, &mut std::io::sink()).map_err(ExtractError::IoError)?;
-            return extract_conda_from_local_buffer(&mut tee_reader, destination);
+            let writer = tee_reader.into_writer();
+            let writer_reader = Cursor::new(writer);
+            return extract_conda_from_local_buffer(writer_reader, destination);
         }
         Err(e) => {
             return Err(e);
@@ -140,6 +142,9 @@ pub fn extract_conda_from_local_buffer(
     destination: &Path,
 ) -> Result<ExtractResult, ExtractError> {
     // delete destination first
+    if destination.exists() {
+        std::fs::remove_dir_all(destination).map_err(ExtractError::CouldNotCreateDestination)?;
+    }
 
     // Construct the destination path if it doesnt exist yet
     std::fs::create_dir_all(destination).map_err(ExtractError::CouldNotCreateDestination)?;

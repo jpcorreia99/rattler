@@ -11,9 +11,9 @@ impl<R: Read, W: Write> TeeReader<R, W> {
     }
 
     // // Method to return ownership of the writer
-    // pub fn into_writer(self) -> W {
-    //     self.writer
-    // }
+    pub fn into_writer(self) -> W {
+        self.writer
+    }
 
     // // Method to drain the remaining data to a sink
     // pub fn drain_to_sink(&mut self) -> io::Result<()> {

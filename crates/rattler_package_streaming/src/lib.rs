@@ -17,6 +17,7 @@ pub mod seek;
 pub mod reqwest;
 
 pub mod fs;
+mod tee_reader;
 pub mod tokio;
 pub mod write;
 

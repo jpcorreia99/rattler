@@ -81,7 +81,7 @@ pub fn extract_conda(reader: impl Read, destination: &Path) -> Result<ExtractRes
             // Get the hashes
             let (sha256_reader, md5) = md5_reader.finalize();
             let (_, sha256) = sha256_reader.finalize();
-
+            println!("USED THE NORMAL INSTAllATION!!!");
             Ok(ExtractResult { sha256, md5 })
         }
         Err(ZipError::InvalidArchive(msg))
@@ -92,6 +92,7 @@ pub fn extract_conda(reader: impl Read, destination: &Path) -> Result<ExtractRes
                 "Invalid archive: {}, falling back to downloading to disk",
                 msg
             );
+            println!("USED THE FALLBACK INSTAllATION!!!");
             std::io::copy(&mut tee_reader, &mut std::io::sink()).map_err(ExtractError::IoError)?;
             return extract_conda_from_local_buffer(&mut tee_reader, destination);
         }

@@ -85,7 +85,7 @@ pub fn extract_conda(reader: impl Read, destination: &Path) -> Result<ExtractRes
             Ok(ExtractResult { sha256, md5 })
         }
         Err(ZipError::InvalidArchive(msg))
-            if msg == "The file length is not available in the local header" =>
+            if msg.contains("The file length is not available in the local header") =>
         {
             // Read the file to the end to ensure buffer is all in memory
             eprintln!(

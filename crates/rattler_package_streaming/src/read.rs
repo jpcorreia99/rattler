@@ -3,6 +3,7 @@
 
 use super::{ExtractError, ExtractResult};
 use crate::tee_reader::TeeReader;
+use std::error::Error;
 use std::io::Cursor;
 use std::mem::ManuallyDrop;
 use std::{ffi::OsStr, io::Read, path::Path};
@@ -63,13 +64,15 @@ pub fn extract_conda(reader: impl Read, destination: &Path) -> Result<ExtractRes
         rattler_digest::HashingReader::<_, rattler_digest::Md5>::new(sha256_reader);
 
     // Iterate over all entries in the zip-file and extract them one-by-one
-    let result = loop {
+    let result: Result<(), ExtractError> = loop {
         match read_zipfile_from_stream(&mut md5_reader) {
             Ok(Some(file)) => {
-                extract_zipfile(file, destination)?;
+                if let Err(e) = extract_zipfile(file, destination) {
+                    break Err(e);
+                }
             }
             Ok(None) => break Ok(()), // No more files to read
-            Err(e) => break Err(e),
+            Err(e) => break Err(ExtractError::ZipError(e)),
         };
     };
 
@@ -84,20 +87,22 @@ pub fn extract_conda(reader: impl Read, destination: &Path) -> Result<ExtractRes
             println!("USED THE NORMAL INSTAllATION!!!");
             Ok(ExtractResult { sha256, md5 })
         }
-        Err(ZipError::InvalidArchive(msg))
-            if msg.contains("The file length is not available in the local header") =>
+        Err(ExtractError::ZipError(zip_error))
+            if zip_error
+                .to_string()
+                .contains("The file length is not available in the local header") =>
         {
             // Read the file to the end to ensure buffer is all in memory
             eprintln!(
                 "Invalid archive: {}, falling back to downloading to disk",
-                msg
+                zip_error.to_string()
             );
             println!("USED THE FALLBACK INSTAllATION!!!");
             std::io::copy(&mut tee_reader, &mut std::io::sink()).map_err(ExtractError::IoError)?;
             return extract_conda_from_local_buffer(&mut tee_reader, destination);
         }
         Err(e) => {
-            return Err(ExtractError::ZipError(e));
+            return Err(e);
         }
     };
 }
